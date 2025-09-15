@@ -9,6 +9,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_bloc: ^9.1.1
   flutter_social_button: ^1.1.6+1
   onboarding: ^4.0.2
   social_login_buttons: ^1.0.7

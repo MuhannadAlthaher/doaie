@@ -1,3 +1,4 @@
+import 'package:final_project_doa/src/register_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_social_button/flutter_social_button.dart';
 class LoginScreen extends StatelessWidget {
@@ -11,7 +12,7 @@ class LoginScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.asset('/Users/MUH/Downloads/logo.jpeg', height: 200,width: 200,),
+            Image.asset('assets/logo.jpeg', height: 200,width: 200,),
             const SizedBox(height: 40),
 
             Container(
@@ -68,6 +69,7 @@ class LoginScreen extends StatelessWidget {
                         ),
                       ),
                       onPressed: () {
+              
                       },
                       child:  Text(
                         "تسجيل الدخول",
@@ -78,19 +80,35 @@ class LoginScreen extends StatelessWidget {
 
                   const SizedBox(height: 16),
 
-                  GestureDetector(
-                    onTap: () {
-                    },
-                    child: const Text(
-                      "ليس لديك حساب؟ سجل الآن",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: 10,),
+                 GestureDetector(
+  onTap: () {
+    Navigator.push(
+  context,
+  MaterialPageRoute(builder: (_) => const RegisterScreen()),
+);
+  },
+  child: RichText(
+    text: const TextSpan(
+      style: TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w500,
+        color: Colors.white, 
+      ),
+      children: [
+        TextSpan(text: "ليس لديك حساب؟ "),
+        TextSpan(
+          text: "سجل الآن",
+          style: TextStyle(
+            color: Color(0xff7a71e5), 
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    ),
+  ),
+),
+
+                  SizedBox(height: 20,),
                   Row(
                     children: [
                       FlutterSocialButton(
