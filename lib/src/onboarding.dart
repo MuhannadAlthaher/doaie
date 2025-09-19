@@ -3,8 +3,8 @@ import 'package:final_project_doa/src/footer.dart';
 
 const Color background = Colors.blue;
 
-class Home extends StatelessWidget {
-  const Home({Key? key}) : super(key: key);
+class onboarding extends StatelessWidget {
+  const onboarding({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {

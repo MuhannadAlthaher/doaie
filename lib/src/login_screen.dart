@@ -1,3 +1,5 @@
+import 'package:final_project_doa/src/onboarding.dart';
+import 'package:final_project_doa/src/homeScreen.dart';
 import 'package:final_project_doa/src/register_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_social_button/flutter_social_button.dart';
@@ -69,7 +71,10 @@ class LoginScreen extends StatelessWidget {
                         ),
                       ),
                       onPressed: () {
-              
+                            Navigator.push(
+  context,
+  MaterialPageRoute(builder: (_) => const HomeScreen()),
+);
                       },
                       child:  Text(
                         "تسجيل الدخول",
