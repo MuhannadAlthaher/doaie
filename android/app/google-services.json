@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "693355394462",
+    "project_id": "doaie-project",
+    "storage_bucket": "doaie-project.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:693355394462:android:894b63124096027859928f",
+        "android_client_info": {
+          "package_name": "com.example.final_project_doa"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDbAAPW090KEWPZmlxHXGMj2E8SegkcL0Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

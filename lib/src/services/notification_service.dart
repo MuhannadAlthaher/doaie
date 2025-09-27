@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
@@ -11,6 +10,16 @@ class NotificationService {
 
   final _plugin = FlutterLocalNotificationsPlugin();
   bool _initialized = false;
+  late tz.Location _localLocation;
+
+  // قناة أندرويد
+  static const _channel = AndroidNotificationChannel(
+    'meds_reminders_v3',
+    'تذكير الدواء (V3)',
+    description: 'تنبيهات أوقات جرعات الدواء',
+    importance: Importance.max,
+    playSound: true,
+  );
 
   Future<void> init() async {
     if (_initialized) return;
@@ -18,162 +27,233 @@ class NotificationService {
     await _configureLocalTimezone();
 
     const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
-    final iosInit = const DarwinInitializationSettings(
+
+    // عرض التنبيه في foreground على iOS (اختياري)
+    const iosInit = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
       requestSoundPermission: true,
+      defaultPresentAlert: true,
+      defaultPresentBadge: true,
+      defaultPresentSound: true,
     );
 
     await _plugin.initialize(
-      InitializationSettings(android: androidInit, iOS: iosInit),
+      const InitializationSettings(android: androidInit, iOS: iosInit),
     );
 
-    final androidImpl = _plugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
-    await androidImpl?.requestNotificationsPermission();
-
+    // Android 13+
     await _plugin
         .resolvePlatformSpecificImplementation<
-            IOSFlutterLocalNotificationsPlugin>()
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.requestNotificationsPermission();
+
+    // iOS
+    await _plugin
+        .resolvePlatformSpecificImplementation<
+          IOSFlutterLocalNotificationsPlugin
+        >()
         ?.requestPermissions(alert: true, badge: true, sound: true);
 
+    // إنشاء القناة
     await ensureAndroidChannel();
+
     _initialized = true;
   }
 
-  static const _channel = AndroidNotificationChannel(
-    'meds_reminders',
-    'تذكير الدواء',
-    description: 'تنبيهات أوقات جرعات الدواء',
-    importance: Importance.max,
-  );
-
+  /// إتاحة تأكيد القناة من الخارج عند الحاجة
   Future<void> ensureAndroidChannel() async {
     await _plugin
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
+          AndroidFlutterLocalNotificationsPlugin
+        >()
         ?.createNotificationChannel(_channel);
   }
 
-  /// جدول تنبيه لمرة واحدة في وقت محدد (تُستخدم للغفوة)
+  NotificationDetails _buildDetails() {
+    final androidDetails = AndroidNotificationDetails(
+      _channel.id,
+      _channel.name,
+      channelDescription: _channel.description,
+      priority: Priority.max,
+      importance: Importance.max,
+      category: AndroidNotificationCategory.reminder,
+      visibility: NotificationVisibility.public,
+      enableVibration: true,
+      playSound: true,
+      fullScreenIntent: false,
+    );
+    return NotificationDetails(
+      android: androidDetails,
+      iOS: const DarwinNotificationDetails(),
+    );
+  }
+
+  /// إشعار فوري
+  Future<void> showNow({
+    required int id,
+    required String title,
+    required String body,
+  }) async {
+    await _ensureInited();
+    await ensureAndroidChannel();
+    await _plugin.show(id, title, body, _buildDetails());
+  }
+
   Future<int> scheduleOneShot({
     required int id,
     required String title,
     required String body,
     required DateTime when,
+    bool exact = false,
   }) async {
-    final tzTime = tz.TZDateTime.from(when, tz.local);
+    await _ensureInited();
+
+    var tzTime = tz.TZDateTime.from(when, _localLocation);
+
+    // وقت آمن للمقارنة (now + 1s)
+    final safeFutureTz = tz.TZDateTime.now(
+      _localLocation,
+    ).add(const Duration(seconds: 1));
+
+    // إن لم يكن بعد الوقت الآمن، ندفعه 5 ثواني
+    if (!tzTime.isAfter(safeFutureTz)) {
+      tzTime = tz.TZDateTime.now(
+        _localLocation,
+      ).add(const Duration(seconds: 5));
+    }
 
     await _plugin.zonedSchedule(
       id,
       title,
       body,
       tzTime,
-      NotificationDetails(
-        android: AndroidNotificationDetails(
-          _channel.id,
-          _channel.name,
-          channelDescription: _channel.description,
-          priority: Priority.max,
-          importance: Importance.max,
-        ),
-        iOS: const DarwinNotificationDetails(),
-      ),
-      // أزيلت uiLocalNotificationDateInterpretation في الإصدارات الحديثة
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      payload: 'dose',
+      _buildDetails(),
+      androidScheduleMode: exact
+          ? AndroidScheduleMode.exactAllowWhileIdle
+          : AndroidScheduleMode.inexactAllowWhileIdle,
+      // ملاحظة: أزلنا uiLocalNotificationDateInterpretation لأن إصدارك لا يدعمه
+      payload: 'one-shot',
     );
     return id;
   }
 
-  /// جدول أسبوعي بحسب اليوم/الوقت
+  Future<int> scheduleIn({
+    required int id,
+    required String title,
+    required String body,
+    required Duration delta,
+    bool exact = false,
+  }) async {
+    final nowTz = tz.TZDateTime.now(_localLocation);
+    return scheduleOneShot(
+      id: id,
+      title: title,
+      body: body,
+      when: nowTz.add(delta),
+      exact: exact,
+    );
+  }
+
   Future<int> scheduleWeekly({
     required int id,
     required String title,
     required String body,
-    required int weekday, // Monday=1 .. Sunday=7
+    required int weekday,
     required TimeOfDay time,
   }) async {
-    final now = DateTime.now();
-    var scheduled = DateTime(
+    await _ensureInited();
+
+    final now = tz.TZDateTime.now(_localLocation);
+    var first = tz.TZDateTime(
+      _localLocation,
       now.year,
       now.month,
       now.day,
       time.hour,
       time.minute,
     );
-
-    // حرّك التاريخ للأمام حتى يطابق اليوم/ويكون مستقبلي
-    while (scheduled.weekday != weekday || !scheduled.isAfter(now)) {
-      scheduled = scheduled.add(const Duration(days: 1));
+    // اليوم الصحيح + في المستقبل
+    while (first.weekday != weekday || !first.isAfter(now)) {
+      first = first.add(const Duration(days: 1));
     }
-
-    final tzTime = tz.TZDateTime.from(scheduled, tz.local);
 
     await _plugin.zonedSchedule(
       id,
       title,
       body,
-      tzTime,
-      NotificationDetails(
-        android: AndroidNotificationDetails(
-          _channel.id,
-          _channel.name,
-          channelDescription: _channel.description,
-          priority: Priority.max,
-          importance: Importance.max,
-        ),
-        iOS: const DarwinNotificationDetails(),
-      ),
-      // أزيلت uiLocalNotificationDateInterpretation
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      first,
+      _buildDetails(),
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
-      payload: 'dose',
+      // أزلنا uiLocalNotificationDateInterpretation
+      payload: 'weekly',
+    );
+    return id;
+  }
+
+  /// تذكير يومي
+  Future<int> scheduleDaily({
+    required int id,
+    required String title,
+    required String body,
+    required TimeOfDay time,
+  }) async {
+    await _ensureInited();
+
+    final now = tz.TZDateTime.now(_localLocation);
+    var first = tz.TZDateTime(
+      _localLocation,
+      now.year,
+      now.month,
+      now.day,
+      time.hour,
+      time.minute,
+    );
+    if (!first.isAfter(now)) first = first.add(const Duration(days: 1));
+
+    await _plugin.zonedSchedule(
+      id,
+      title,
+      body,
+      first,
+      _buildDetails(),
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      matchDateTimeComponents: DateTimeComponents.time,
+      payload: 'daily',
     );
     return id;
   }
 
   Future<void> cancel(int id) => _plugin.cancel(id);
+  Future<void> cancelAll() => _plugin.cancelAll();
+  Future<List<PendingNotificationRequest>> pluginPending() =>
+      _plugin.pendingNotificationRequests();
 
-  // ---------------------- Helpers ----------------------
+  // ---------------------------------
+
+  Future<void> _ensureInited() async {
+    if (!_initialized) {
+      await init();
+    }
+  }
 
   Future<void> _configureLocalTimezone() async {
     tz.initializeTimeZones();
 
     String iana;
     try {
-      // يعطيك IANA الصحيح مثل: Asia/Riyadh
       iana = await FlutterTimezone.getLocalTimezone();
     } catch (_) {
-      // fallback ذكي بناءً على الاسم المختصر أو الويندوز
-      iana = _fallbackIanaFrom(DateTime.now().timeZoneName);
+      iana = 'Asia/Riyadh';
     }
 
-    // لو رجع اسم غير موجود في قاعدة tz، نفترض Asia/Riyadh ثم UTC كحل أخير
     try {
-      tz.setLocalLocation(tz.getLocation(iana));
+      _localLocation = tz.getLocation(iana);
     } catch (_) {
-      try {
-        tz.setLocalLocation(tz.getLocation('Asia/Riyadh'));
-      } catch (__) {
-        tz.setLocalLocation(tz.getLocation('UTC'));
-      }
+      _localLocation = tz.getLocation('Asia/Riyadh');
     }
-  }
-
-  String _fallbackIanaFrom(String rawName) {
-    final n = rawName.trim();
-    // أشهر الاحتمالات للأجهزة اللي تعطي اسم غير IANA:
-    switch (n) {
-      case 'Arabian Standard Time':
-      case 'AST': // قد تُستخدم عربياً (ليست Atlantic هنا)
-      case 'GMT+03:00':
-      case 'UTC+03:00':
-        return 'Asia/Riyadh';
-      default:
-        // كحل عام
-        return 'UTC';
-    }
+    tz.setLocalLocation(_localLocation);
   }
 }

@@ -24,7 +24,7 @@ class _CircleFooterIndicatorState extends State<CircleFooterIndicator> {
   void _goToLogin(BuildContext context) {
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      MaterialPageRoute(builder: (_) =>  LoginScreen()),
     );
   }
 

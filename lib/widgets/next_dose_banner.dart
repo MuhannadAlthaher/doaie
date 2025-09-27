@@ -8,7 +8,7 @@ class AppColors {
 }
 
 class NextDoseBanner extends StatelessWidget {
-  final String? title; // اسم الدواء + الجرعة
+  final String? title;
   final DateTime? nextTime;
   final Duration? until;
 
@@ -21,27 +21,53 @@ class NextDoseBanner extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.primary,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 4))],
+        boxShadow: const [
+          BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 4)),
+        ],
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+            ),
             child: const Icon(Icons.medication, color: AppColors.dark),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: nextTime == null
-                ? const Text('لا توجد جرعات قادمة اليوم — استرح 🙌', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))
+                ? const Text(
+                    'لا توجد جرعات قادمة اليوم — استرح 🙌',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  )
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('أقرب جرعة', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                      const Text(
+                        'أقرب جرعة',
+                        style: TextStyle(color: Colors.white70, fontSize: 12),
+                      ),
                       const SizedBox(height: 2),
-                      Text(title!, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      Text(
+                        title!,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       const SizedBox(height: 2),
-                      Text(_timeString(nextTime!) + (until != null ? ' (بعد ${_fmtDuration(until!)})' : ''), style: const TextStyle(color: Colors.white)),
+                      Text(
+                        _timeString(nextTime!) +
+                            (until != null
+                                ? ' (بعد ${_fmtDuration(until!)})'
+                                : ''),
+                        style: const TextStyle(color: Colors.white),
+                      ),
                     ],
                   ),
           ),
@@ -51,5 +77,8 @@ class NextDoseBanner extends StatelessWidget {
   }
 }
 
-String _timeString(DateTime dt) => '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-String _fmtDuration(Duration d) => d.inHours > 0 ? '${d.inHours}س ${d.inMinutes % 60}د' : '${d.inMinutes} دقيقة';
+String _timeString(DateTime dt) =>
+    '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+String _fmtDuration(Duration d) => d.inHours > 0
+    ? '${d.inHours}س ${d.inMinutes % 60}د'
+    : '${d.inMinutes} دقيقة';

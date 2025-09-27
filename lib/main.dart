@@ -1,10 +1,15 @@
-import 'package:final_project_doa/src/onboarding.dart';
 import 'package:final_project_doa/src/services/notification_service.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
+import 'src/onboarding.dart'; 
 
-void main() async{
-   WidgetsFlutterBinding.ensureInitialized();
-   await NotificationService.instance.init();
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  await NotificationService.instance.init();
   runApp(const MainApp());
 }
 
@@ -13,8 +18,6 @@ class MainApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      home: onboarding()
-    );
+    return const MaterialApp(home: Onboarding());
   }
 }
